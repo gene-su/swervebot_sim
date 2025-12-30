@@ -1,0 +1,250 @@
+<?xml version="1.0"?>
+<robot name="swerve_bot" xmlns:xacro="http://ros.org/wiki/xacro">
+  <xacro:property name="base_mass" value="10.0" />
+  <xacro:property name="base_to_steering" value="0.1" />
+  <xacro:property name="steering_to_wheel" value="0.02" />
+  <xacro:property name="wheel_mass" value="5.0" />
+  <xacro:property name="wheel_radius" value="0.2" />
+  <xacro:property name="front" value="0.5" />
+  <xacro:property name="rear" value="0.5" />
+  <xacro:property name="left" value="0.5" />
+  <xacro:property name="right" value="0.5" />
+
+  <!-- Define Macro -->
+  <xacro:macro name="swerve_motor" params="name parent x_offset y_offset">
+    <!-- swerve link -->
+    <link name="${name}_swerve_link">
+      <inertial>
+        <mass value="0.01" />
+        <inertia ixx="0.01" iyy="0.01" izz="0.01" ixy="0" ixz="0" iyz="0" />
+      </inertial>
+      <visual>
+        <geometry>
+          <cylinder radius="0.025" length="0.025" />
+        </geometry>
+      </visual>
+      <collision>
+        <geometry>
+          <cylinder radius="0.025" length="0.025" />
+        </geometry>
+      </collision>
+    </link>
+
+    <joint name="${name}_swerve_joint" type="fixed">
+      <origin xyz="${x_offset} ${y_offset} 0.0" rpy="0 0 0" />
+      <parent link="${parent}" />
+      <child link="${name}_swerve_link" />
+    </joint>
+
+    <!-- steering link -->
+    <link name="${name}_steering_link">
+      <inertial>
+        <mass value="0.01" />
+        <inertia ixx="0.01" iyy="0.01" izz="0.01" ixy="0" ixz="0" iyz="0" />
+      </inertial>
+      <visual>
+        <geometry>
+          <cylinder radius="0.1" length="0.025" />
+        </geometry>
+      </visual>
+      <collision>
+        <geometry>
+          <cylinder radius="0.1" length="0.025" />
+        </geometry>
+      </collision>
+    </link>
+
+    <joint name="${name}_steering_joint" type="continuous">
+      <origin xyz="0.0 0.0 ${-base_to_steering}" rpy="0 0 0" />
+      <parent link="${name}_swerve_link" />
+      <child link="${name}_steering_link" />
+      <axis xyz="0 0 1" />
+    </joint>
+
+    <ros2_control name="${name}_steering_system" type="system">
+      <hardware>
+        <plugin>gazebo_ros2_control/GazeboSystem</plugin>
+      </hardware>
+      <joint name="${name}_steering_joint">
+        <command_interface name="position">
+          <param name="min">-3.14159</param>
+          <param name="max">3.14159</param>
+        </command_interface>
+        <state_interface name="position" />
+        <state_interface name="velocity" />
+      </joint>
+    </ros2_control>
+
+    <!-- wheel link -->
+    <link name="${name}_wheel_link">
+      <inertial>
+        <mass value="${wheel_mass}" />
+        <inertia ixx="0.0029167" iyy="0.0029167" izz="0.0056250" ixy="0" ixz="0" iyz="0" />
+      </inertial>
+      <visual>
+        <geometry>
+          <cylinder radius="${wheel_radius}" length="0.05" />
+        </geometry>
+      </visual>
+      <collision>
+        <geometry>
+          <cylinder radius="${wheel_radius}" length="0.05" />
+        </geometry>
+        <surface>
+          <friction>
+            <ode>
+              <mu>100000.0</mu>
+              <mu2>100000.0</mu2>
+              <minDepth>0.001</minDepth>
+              <kp>100000000</kp>
+              <kd>1</kd>
+              <fdir1>0 0 0</fdir1>
+              <slip1>0.0</slip1>
+              <slip2>0.0</slip2>
+            </ode>
+          </friction>
+          <contact>
+            <ode>
+              <soft_cfm>0</soft_cfm>
+              <soft_erp>0.2</soft_erp>
+              <kp>1e+5</kp>
+              <kd>1</kd>
+              <max_vel>0.01</max_vel>
+              <min_depth>0.001</min_depth>
+            </ode>
+          </contact>
+        </surface>
+      </collision>
+    </link>
+
+    <joint name="${name}_wheel_joint" type="continuous">
+      <origin xyz="0 0 ${-wheel_radius-steering_to_wheel}" rpy="-1.57 0 0" />
+      <parent link="${name}_steering_link" />
+      <child link="${name}_wheel_link" />
+      <axis xyz="0 0 1" />
+    </joint>
+
+    <ros2_control name="${name}_wheel_system" type="system">
+      <hardware>
+        <plugin>gazebo_ros2_control/GazeboSystem</plugin>
+      </hardware>
+      <joint name="${name}_wheel_joint">
+        <command_interface name="velocity">
+          <param name="min">-100</param>
+          <param name="max">100</param>
+        </command_interface>
+        <state_interface name="position" />
+        <state_interface name="velocity" />
+      </joint>
+    </ros2_control>
+  </xacro:macro>
+
+  <!-- Define Links and Joints -->
+  <link name="base_footprint" />
+
+  <!-- base link -->
+  <link name="base_link">
+    <inertial>
+      <mass value="${base_mass}" />
+      <inertia ixx="0.0118750" iyy="0.0118750" izz="0.0200000" ixy="0" ixz="0" iyz="0" />
+    </inertial>
+    <visual>
+      <geometry>
+        <box size="${front+rear+2*wheel_radius+0.1} ${left+right+2*wheel_radius+0.1} 0.05" />
+      </geometry>
+    </visual>
+    <collision>
+      <geometry>
+        <box size="${front+rear+2*wheel_radius+0.1} ${left+right+2*wheel_radius+0.1} 0.05" />
+      </geometry>
+    </collision>
+  </link>
+
+  <gazebo reference="base_link">
+    <visual>
+      <transparency>0.5</transparency>
+    </visual>
+  </gazebo>
+
+  <joint name="base_joint" type="fixed">
+    <origin xyz="0 0 ${base_to_steering+steering_to_wheel+2*wheel_radius}" rpy="0 0 0" />
+    <parent link="base_footprint" />
+    <child link="base_link" />
+  </joint>
+
+  <!-- lidar link -->
+  <link name="lidar_link">
+    <inertial>
+      <mass value="0.0" />
+      <inertia ixx="0" iyy="0" izz="0" ixy="0" ixz="0" iyz="0" />
+    </inertial>
+    <visual>
+      <geometry>
+        <cylinder radius="0.05" length="0.025" />
+      </geometry>
+    </visual>
+    <collision>
+      <geometry>
+        <cylinder radius="0.05" length="0.025" />
+      </geometry>
+    </collision>
+  </link>
+
+  <joint name="lidar_joint" type="fixed">
+    <origin xyz="0.4 0 0.1" rpy="0 0 0" />
+    <parent link="base_link" />
+    <child link="lidar_link" />
+  </joint>
+
+  <!-- swerve links -->
+  <xacro:swerve_motor name="front_left" parent="base_link" x_offset="${front}" y_offset="${left}" />
+  <xacro:swerve_motor name="front_right" parent="base_link" x_offset="${front}"
+    y_offset="${-right}" />
+  <xacro:swerve_motor name="rear_left" parent="base_link" x_offset="${-rear}" y_offset="${left}" />
+  <xacro:swerve_motor name="rear_right" parent="base_link" x_offset="${-rear}"
+    y_offset="${-right}" />
+
+  <!-- Import Plugins -->
+  <gazebo>
+    <plugin filename="libgazebo_ros2_control.so" name="gazebo_ros2_control">
+      <robot_param>robot_description</robot_param>
+      <robot_param_node>robot_state_publisher</robot_param_node>
+      <parameters>$(find swervebot_sim)/model/swerve4bot/config/swervebot_controller.yaml</parameters>
+    </plugin>
+  </gazebo>
+
+  <gazebo reference="lidar_link">
+    <sensor name="lidar" type="ray">
+      <always_on>true</always_on>
+      <visualize>false</visualize>
+      <pose>0 0 0 0 0 0</pose>
+      <update_rate>15</update_rate>
+      <ray>
+        <scan>
+          <horizontal>
+            <samples>720</samples>
+            <resolution>1</resolution>
+            <min_angle>-3.14159265359</min_angle>
+            <max_angle>3.14159265359</max_angle>
+          </horizontal>
+        </scan>
+        <range>
+          <min>0.05</min>
+          <max>15.0</max>
+          <resolution>0.01</resolution>
+        </range>
+        <noise>
+          <type>gaussian</type>
+          <mean>0.0</mean>
+          <stddev>0.001</stddev>
+        </noise>
+      </ray>
+      <plugin name="ray_sensor" filename="libgazebo_ros_ray_sensor.so">
+        <ros>
+          <remapping>~/out:=scan</remapping>
+        </ros>
+        <output_type>sensor_msgs/LaserScan</output_type>
+      </plugin>
+    </sensor>
+  </gazebo>
+</robot>
